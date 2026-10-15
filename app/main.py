@@ -1,9 +1,3 @@
-"""
-Employee Attendance & Analytics API
-
-Run:  uvicorn app.main:app --port 8000
-Env:  MONGO_URI, MONGO_DB (a local .env is loaded for convenience)
-"""
 import os
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -26,12 +20,11 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 app = FastAPI(title="Employee Attendance & Analytics API", version="2.0.0")
 
-# Create indexes at startup (idempotent — skips if index already exists with a different name)
 def _ensure_index(collection, keys, **kwargs):
     try:
         collection.create_index(keys, **kwargs)
     except OperationFailure as e:
-        if e.code == 85:  # IndexOptionsConflict — index already exists with a different name, that's fine
+        if e.code == 85: 
             pass
         else:
             raise
@@ -45,9 +38,6 @@ PRESENCE_STATUSES = {"PRESENT", "WFH", "ON_DUTY"}
 ABSENCE_STATUSES = {"ABSENT", "LEAVE"}
 
 
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
 
 def _round_half_up(value: float, decimals: int) -> float:
     """Half-up rounding — not Python's default banker's rounding (R8)."""
@@ -126,10 +116,6 @@ def compute_overtime(punch_out: datetime, shift_end: str, date_str: str) -> int:
     return raw if raw >= 30 else 0
 
 
-# --------------------------------------------------------------------------- #
-# Pydantic models
-# --------------------------------------------------------------------------- #
-
 class EmployeeIn(BaseModel):
     emp_code: str
     name: str
@@ -159,9 +145,6 @@ class RegularizeIn(BaseModel):
     regularized_by: str
 
 
-# --------------------------------------------------------------------------- #
-# System / employee endpoints (original)
-# --------------------------------------------------------------------------- #
 
 @app.get("/")
 def root():
@@ -203,10 +186,6 @@ def list_employees(department: Optional[str] = None, page: int = 1, page_size: i
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
-# --------------------------------------------------------------------------- #
-# Attendance: punch-in
-# --------------------------------------------------------------------------- #
-
 @app.post("/attendance/punch-in", status_code=201)
 def punch_in(body: PunchInIn):
     emp = db.employees.find_one({"emp_code": body.emp_code})
@@ -234,10 +213,6 @@ def punch_in(body: PunchInIn):
     doc.pop("_id", None)
     return doc
 
-
-# --------------------------------------------------------------------------- #
-# Attendance: list
-# --------------------------------------------------------------------------- #
 
 @app.get("/attendance")
 def list_attendance(
@@ -271,10 +246,6 @@ def list_attendance(
         d["id"] = str(d.pop("_id"))
     return {"items": page_docs, "total": total, "page": page, "page_size": page_size}
 
-
-# --------------------------------------------------------------------------- #
-# Attendance: punch-out
-# --------------------------------------------------------------------------- #
 
 @app.post("/attendance/punch-out")
 def punch_out(body: PunchOutIn):
@@ -322,9 +293,6 @@ def punch_out(body: PunchOutIn):
     return _serialize_record(result)
 
 
-# --------------------------------------------------------------------------- #
-# PATCH /attendance/{emp_code}/{date} — Regularize (manual correction)
-# --------------------------------------------------------------------------- #
 
 @app.patch("/attendance/{emp_code}/{date}")
 def regularize_attendance(emp_code: str, date: str, body: RegularizeIn):
@@ -426,10 +394,6 @@ def regularize_attendance(emp_code: str, date: str, body: RegularizeIn):
     return _serialize_record(result)
 
 
-# --------------------------------------------------------------------------- #
-# GET /analytics/employees/{emp_code}/monthly
-# --------------------------------------------------------------------------- #
-
 @app.get("/analytics/employees/{emp_code}/monthly")
 def employee_monthly(emp_code: str, month: str):
     emp = db.employees.find_one({"emp_code": emp_code})
@@ -478,10 +442,6 @@ def employee_monthly(emp_code: str, month: str):
         "attendance_pct": attendance_pct,
     }
 
-
-# --------------------------------------------------------------------------- #
-# GET /analytics/departments/summary
-# --------------------------------------------------------------------------- #
 
 @app.get("/analytics/departments/summary")
 def department_summary(month: str, department: Optional[str] = None):
@@ -551,9 +511,6 @@ def department_summary(month: str, department: Optional[str] = None):
     return {"month": month, "items": result_items}
 
 
-# --------------------------------------------------------------------------- #
-# GET /analytics/leaderboard/late
-# --------------------------------------------------------------------------- #
 
 @app.get("/analytics/leaderboard/late")
 def late_leaderboard(month: str, limit: int = 10, department: Optional[str] = None):
@@ -589,10 +546,9 @@ def late_leaderboard(month: str, limit: int = 10, department: Optional[str] = No
             "late_count": stats["late_count"],
         })
 
-    # Sort: total_late_minutes desc, emp_code asc
     rows.sort(key=lambda x: (-x["total_late_minutes"], x["emp_code"]))
 
-    # Standard competition ranking (1, 2, 2, 4, ...)
+   
     rank = 1
     for i, row in enumerate(rows):
         if i > 0 and row["total_late_minutes"] < rows[i - 1]["total_late_minutes"]:
@@ -602,9 +558,7 @@ def late_leaderboard(month: str, limit: int = 10, department: Optional[str] = No
     return {"month": month, "items": [r for r in rows if r["rank"] <= limit]}
 
 
-# --------------------------------------------------------------------------- #
-# GET /analytics/departments/{department}/trend
-# --------------------------------------------------------------------------- #
+
 
 @app.get("/analytics/departments/{department}/trend")
 def department_trend(
@@ -680,9 +634,7 @@ def department_trend(
     return {"department": department, "items": items}
 
 
-# --------------------------------------------------------------------------- #
-# GET /admin/explain/{endpoint}
-# --------------------------------------------------------------------------- #
+
 
 @app.get("/admin/explain/{endpoint}")
 def explain_endpoint(
