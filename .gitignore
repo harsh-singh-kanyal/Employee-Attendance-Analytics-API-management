@@ -1,0 +1,18 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Project-specific
+candidate_kit/sample_data/
+PROBLEM_STATEMENT.docx
+chat_summary.md
